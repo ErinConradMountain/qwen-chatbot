@@ -4,16 +4,15 @@ import json
 import os
 import sys
 from dataclasses import dataclass
-from typing import List, Optional
+from contextlib import suppress
+from typing import Any, List, Optional, Sequence, cast
 
 # Import config early to trigger optional .env loading via python-dotenv
-try:
-    from src import config as _config  # noqa: F401
-except Exception:
-    _config = None  # OS env will still be used by providers
+with suppress(Exception):
+    from src import config as _unused_config  # noqa: F401
 
 try:
-    import requests  # Only used for Ollama; stdlib alternative possible but requests is common
+    import requests  # type: ignore[import-untyped]  # Only used for Ollama; stdlib alternative possible but requests is common
 except Exception:
     requests = None
 
@@ -27,15 +26,32 @@ class Message:
 
 
 def parse_args() -> argparse.Namespace:
-    p = argparse.ArgumentParser(description="Minimal chatbot CLI supporting mock, openai, and ollama providers.")
-    p.add_argument("--provider", choices=["mock", "openai", "ollama", "qwen"], default="mock", help="Backend provider.")
-    p.add_argument("--model", default=None, help="Model name (required for openai/ollama). Examples: gpt-4o-mini, qwen2.5:7b-instruct")
+    """Build the CLI argument parser and return parsed arguments."""
+
+    p = argparse.ArgumentParser(
+        description="Minimal chatbot CLI supporting mock, openai, and ollama providers."
+    )
+    p.add_argument(
+        "--provider",
+        choices=["mock", "openai", "ollama", "qwen"],
+        default="mock",
+        help="Backend provider.",
+    )
+    p.add_argument(
+        "--model",
+        default=None,
+        help="Model name (required for openai/ollama). Examples: gpt-4o-mini, qwen2.5:7b-instruct",
+    )
     p.add_argument("--once", default=None, help="Send a single prompt and exit.")
-    p.add_argument("--system", default="You are a helpful assistant.", help="System prompt.")
+    p.add_argument(
+        "--system", default="You are a helpful assistant.", help="System prompt."
+    )
     return p.parse_args()
 
 
 def chat_loop(provider: str, model: Optional[str], system_prompt: str):
+    """Run the interactive CLI chat loop until the user exits."""
+
     messages: List[Message] = [Message("system", system_prompt)]
     print(f"Provider: {provider}")
     if model:
@@ -59,12 +75,25 @@ def chat_loop(provider: str, model: Optional[str], system_prompt: str):
 
 
 def run_once(provider: str, model: Optional[str], system_prompt: str, prompt: str):
+    """Send a single prompt to the provider and print the reply."""
+
     messages = [Message("system", system_prompt), Message("user", prompt)]
     reply = run_inference(provider, model, messages)
     print(reply)
 
 
 def run_inference(provider: str, model: Optional[str], messages: List[Message]) -> str:
+    """Dispatch to the configured inference backend.
+
+    Args:
+        provider: Provider identifier selected via CLI.
+        model: Optional model override for providers that support multiple models.
+        messages: Conversation history represented by ``Message`` dataclass instances.
+
+    Returns:
+        The assistant reply text from the chosen backend.
+    """
+
     if provider == "mock":
         return mock_infer(messages)
     if provider == "openai":
@@ -78,14 +107,21 @@ def run_inference(provider: str, model: Optional[str], messages: List[Message]) 
 
 # --- Providers ---
 
+
 def mock_infer(messages: List[Message]) -> str:
-    user_messages = [m.content.strip() for m in messages if m.role == "user" and m.content.strip()]
+    """Generate a predictable mock response for unit tests and demos."""
+
+    user_messages = [
+        m.content.strip() for m in messages if m.role == "user" and m.content.strip()
+    ]
     if not user_messages:
-        return "[mock] Hello! I'm the built-in assistant. Ask me anything and we'll chat."
+        return (
+            "[mock] Hello! I'm the built-in assistant. Ask me anything and we'll chat."
+        )
 
     last_user = user_messages[-1]
     previous = user_messages[-2] if len(user_messages) > 1 else None
-    normalized = last_user.strip().lower().rstrip('!.?')
+    normalized = last_user.strip().lower().rstrip("!.?")
 
     farewells = {"bye", "goodbye", "see you", "see ya"}
     if normalized in farewells:
@@ -100,24 +136,33 @@ def mock_infer(messages: List[Message]) -> str:
     response_parts.append(f'I hear you saying "{last_user}".')
 
     if last_user.endswith("?"):
-        response_parts.append("I can't access real data, but I'd love to hear your thoughts.")
+        response_parts.append(
+            "I can't access real data, but I'd love to hear your thoughts."
+        )
     else:
         response_parts.append("Tell me more so we can keep the conversation going.")
 
     return " ".join(response_parts)
 
+
 # Minimal provider class so the registry is valid.
 class MockProvider:
     @staticmethod
     def infer(messages: List[Message]) -> str:
+        """Expose ``mock_infer`` through a provider-like interface."""
+
         return mock_infer(messages)
 
 
 def openai_infer(model: Optional[str], messages: List[Message]) -> str:
+    """Call the OpenAI Chat Completions API."""
+
     try:
         from openai import OpenAI
     except Exception as e:
-        raise RuntimeError("OpenAI provider requested but the 'openai' package is not installed. Run: pip install -r requirements.txt") from e
+        raise RuntimeError(
+            "OpenAI provider requested but the 'openai' package is not installed. Run: pip install -r requirements.txt"
+        ) from e
 
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
@@ -126,22 +171,35 @@ def openai_infer(model: Optional[str], messages: List[Message]) -> str:
         raise RuntimeError("--model is required for --provider openai.")
 
     base_url = os.getenv("OPENAI_BASE_URL")
-    client = OpenAI(api_key=api_key, base_url=base_url) if base_url else OpenAI(api_key=api_key)
+    client = (
+        OpenAI(api_key=api_key, base_url=base_url)
+        if base_url
+        else OpenAI(api_key=api_key)
+    )
 
     chat_messages = [{"role": m.role, "content": m.content} for m in messages]
 
     try:
-        resp = client.chat.completions.create(model=model, messages=chat_messages)
-        return resp.choices[0].message.content.strip()
+        response = client.chat.completions.create(
+            model=model, messages=cast(Sequence[Any], chat_messages)
+        )
+        message = response.choices[0].message
+        if message is None or message.content is None:
+            raise RuntimeError("OpenAI API returned an empty message.")
+        return message.content.strip()
     except Exception as e:
         raise RuntimeError(f"OpenAI API error: {e}")
 
 
 def ollama_infer(model: Optional[str], messages: List[Message]) -> str:
+    """Call a locally hosted Ollama chat endpoint."""
+
     if not model:
         raise RuntimeError("--model is required for --provider ollama.")
     if requests is None:
-        raise RuntimeError("The 'requests' package is required for Ollama provider. Run: pip install requests")
+        raise RuntimeError(
+            "The 'requests' package is required for Ollama provider. Run: pip install requests"
+        )
 
     url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434") + "/api/chat"
     payload = {
@@ -150,7 +208,12 @@ def ollama_infer(model: Optional[str], messages: List[Message]) -> str:
         "stream": False,
     }
     try:
-        r = requests.post(url, data=json.dumps(payload), headers={"Content-Type": "application/json"}, timeout=120)
+        r = requests.post(
+            url,
+            data=json.dumps(payload),
+            headers={"Content-Type": "application/json"},
+            timeout=120,
+        )
         r.raise_for_status()
         data = r.json()
         # The exact shape may vary by Ollama version; handle common formats
@@ -165,6 +228,7 @@ def ollama_infer(model: Optional[str], messages: List[Message]) -> str:
     except Exception as e:
         raise RuntimeError(f"Ollama request failed: {e}")
 
+
 def qwen_infer(model: Optional[str], messages: List[Message]) -> str:
     """Call Qwen via OpenRouter using QwenProvider.
 
@@ -173,6 +237,7 @@ def qwen_infer(model: Optional[str], messages: List[Message]) -> str:
     provider = QwenProvider()
     chat_messages = [{"role": m.role, "content": m.content} for m in messages]
     return provider.chat(chat_messages, model_override=model)
+
 
 # Provider registry
 PROVIDERS = {
