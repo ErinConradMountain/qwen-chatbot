@@ -1,1 +1,81 @@
 # qwen-chatbot
+
+A minimal local chatbot starter you can run right away. It supports three providers:
+
+- mock (no network, default) - useful to verify the CLI works
+- OpenAI-compatible API - set OPENAI_API_KEY and specify a model
+- Ollama (local) - if you have Ollama installed (http://localhost:11434)
+
+## Quick start (no API needed)
+
+Run a one-off prompt in mock mode:
+
+```powershell
+cd $PSScriptRoot
+python .\chatbot.py --provider mock --once "Hello there"
+```
+
+Interactive chat loop (mock):
+
+```powershell
+python .\chatbot.py --provider mock
+```
+
+The mock provider now keeps basic conversational context so you can exercise the chat loop without any external APIs.
+
+## Use an OpenAI-compatible API
+
+Requirements:
+- Python 3.9+
+- Environment variable `OPENAI_API_KEY` set
+
+Example (OpenAI):
+
+```powershell
+$env:OPENAI_API_KEY = "sk-..."
+python .\chatbot.py --provider openai --model gpt-4o-mini --once "Explain Qwen models in one sentence"
+```
+
+Example (any OpenAI-compatible endpoint):
+
+```powershell
+$env:OPENAI_API_KEY = "your-key"
+$env:OPENAI_BASE_URL = "https://your-endpoint/v1"
+python .\chatbot.py --provider openai --model your-model-name --once "Hello"
+```
+
+## Use Ollama (local)
+
+Requirements:
+- Ollama running locally (https://ollama.com/)
+
+Example with Qwen 2.5 7B instruct:
+
+```powershell
+python .\chatbot.py --provider ollama --model qwen2.5:7b-instruct --once "Write a haiku about autumn"
+```
+
+Interactive session (any provider):
+
+```powershell
+python .\chatbot.py --provider ollama --model qwen2.5:7b-instruct
+```
+
+## Run tests
+
+Install the optional dependencies and run pytest to exercise the conversational mock provider and the dispatcher logic:
+
+```powershell
+pip install -r requirements.txt
+python -m pytest
+```
+
+## Notes
+
+- The script defaults to the `mock` provider, so it never sends network traffic unless you explicitly opt in.
+- The OpenAI provider imports the `openai` package lazily; install dependencies with `pip install -r requirements.txt` if you plan to use it.
+- The Ollama provider now depends on the `requests` package for HTTP calls.
+
+## Repository status
+
+This starter was added to make testing easy. If you need more features, feel free to build on top of it.
