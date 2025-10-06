@@ -1,0 +1,5 @@
+# Optional dependencies for providers and tests
+openai>=1.52.0
+requests>=2.32.0
+pytest>=8.3.3
+python-dotenv>=1.0.1

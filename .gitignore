@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+*.pytest_cache/
+
+# Env and secrets
+.env
+*.env
+.envrc
+
+# Virtual environments
+.venv/
+venv/
+
+# Build/dist
+build/
+dist/
+*.egg-info/
+
+# IDE/editor
+.vscode/
+.idea/
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
