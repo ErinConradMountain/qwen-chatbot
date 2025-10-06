@@ -1,8 +1,10 @@
 # src/config.py
 from pathlib import Path
 import os
+
 try:
     from dotenv import load_dotenv  # pip install python-dotenv
+
     env_file = Path(__file__).resolve().parents[1] / ".env"
     if env_file.exists():
         load_dotenv(env_file)
