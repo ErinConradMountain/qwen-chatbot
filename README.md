@@ -96,6 +96,10 @@ python -m pytest
 - The OpenAI and Qwen providers import their SDKs lazily; install dependencies with `pip install -r requirements.txt` if you plan to use them.
 - The Ollama and Qwen providers depend on the `requests` package for HTTP calls.
 
+## Architecture
+
+See `ARCHITECTURE.md` for a detailed report on the agentic framework, directory layout, extension points, and roadmap.
+
 ## Roles (scaffolding)
 
 A role system is scaffolded under `src/roles/` to centralize chatbot behavior.

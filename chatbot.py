@@ -5,6 +5,8 @@ import os
 import sys
 from dataclasses import dataclass
 from typing import List, Optional
+from core.load import build_registries
+from core.manager import ConversationManager
 
 # Import config early to trigger optional .env loading via python-dotenv
 try:
@@ -230,6 +232,28 @@ PROVIDERS = {
 
 if __name__ == "__main__":
     args = parse_args()
+    # Prefer new framework path if no legacy provider override was given
+    if args.provider is None or args.provider == "qwen":
+        agents = build_registries("agents/agents.yml")
+        cm = ConversationManager(agents)
+        if args.once:
+            print(cm.handle(args.once))
+            sys.exit(0)
+        print("Chatbot started. Type 'exit' to quit.")
+        while True:
+            try:
+                user = input("You: ").strip()
+            except (EOFError, KeyboardInterrupt):
+                print("\nBye!")
+                break
+            if not user:
+                continue
+            if user.lower() in {"/exit", ":q", "quit", "exit"}:
+                print("Bye!")
+                break
+            print(cm.handle(user))
+        sys.exit(0)
+    # Fallback to legacy path
     if args.once:
         run_once(args.provider, args.model, args.system, args.once)
         sys.exit(0)

@@ -1,0 +1,22 @@
+default: "bootstrap"
+agents:
+  - id: "bootstrap"
+    name: "Bootstrap Agent"
+    system_template: ""
+    provider: "qwen"
+    model: "qwen2.5-7b-instruct:free"
+    policies: { max_tokens: 512 }
+    capabilities: { streaming: false }
+    routing: { tags: ["generic"] }
+    metadata: { domain: "general" }
+
+  - id: "aux"
+    name: "Auxiliary Agent"
+    system_template: ""
+    provider: "qwen"
+    model: "qwen2.5-7b-instruct:free"
+    policies: {}
+    capabilities: {}
+    routing: { tags: ["fallback"] }
+    metadata: {}
+
