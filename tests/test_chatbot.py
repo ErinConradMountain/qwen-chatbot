@@ -1,6 +1,6 @@
 import pytest
 
-from chatbot import Message, mock_infer, run_inference
+from chatbot import Message, mock_infer, qwen_infer, run_inference
 
 
 def test_mock_infer_without_user_messages():
@@ -37,6 +37,51 @@ def test_run_inference_dispatches_to_mock(monkeypatch):
     assert result == sentinel
 
 
+def test_run_inference_dispatches_to_qwen(monkeypatch):
+    sentinel = "qwen response"
+
+    def fake_qwen_infer(model, messages):
+        assert model == "override"
+        assert messages[-1].content == "hi"
+        return sentinel
+
+    monkeypatch.setattr("chatbot.qwen_infer", fake_qwen_infer)
+
+    messages = [Message("system", "sys"), Message("user", "hi")]
+    assert run_inference("qwen", "override", messages) == sentinel
+
+
 def test_run_inference_rejects_unknown_provider():
     with pytest.raises(ValueError):
         run_inference("unknown", None, [])
+
+
+def test_qwen_infer_uses_provider(monkeypatch):
+    calls = {}
+
+    class DummyProvider:
+        def __init__(self):
+            calls.setdefault("inits", 0)
+            calls["inits"] += 1
+
+        def chat(self, chat_messages, model_override=None):
+            calls["payload"] = chat_messages
+            calls["model_override"] = model_override
+            return "qwen says hi"
+
+    monkeypatch.setattr("chatbot.QwenProvider", DummyProvider)
+
+    messages = [
+        Message("system", "You are helpful."),
+        Message("user", "Tell me a joke"),
+    ]
+    result = qwen_infer("qwen/custom", messages)
+
+    assert result == "qwen says hi"
+    assert calls["inits"] == 1
+    assert calls["payload"] == [
+        {"role": "system", "content": "You are helpful."},
+        {"role": "user", "content": "Tell me a joke"},
+    ]
+    assert calls["model_override"] == "qwen/custom"
+

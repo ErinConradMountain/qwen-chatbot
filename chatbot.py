@@ -17,7 +17,10 @@ try:
 except Exception:
     requests = None
 
-from src.providers.qwen_provider import QwenProvider
+try:
+    from src.providers.qwen_provider import QwenProvider
+except Exception:
+    QwenProvider = None  # type: ignore
 
 
 @dataclass
@@ -27,9 +30,9 @@ class Message:
 
 
 def parse_args() -> argparse.Namespace:
-    p = argparse.ArgumentParser(description="Minimal chatbot CLI supporting mock, openai, and ollama providers.")
+    p = argparse.ArgumentParser(description="Minimal chatbot CLI supporting mock, openai, ollama, and qwen providers.")
     p.add_argument("--provider", choices=["mock", "openai", "ollama", "qwen"], default="mock", help="Backend provider.")
-    p.add_argument("--model", default=None, help="Model name (required for openai/ollama). Examples: gpt-4o-mini, qwen2.5:7b-instruct")
+    p.add_argument("--model", default=None, help="Model name (required for openai/ollama, optional override for qwen). Examples: gpt-4o-mini, qwen2.5:7b-instruct, qwen/qwen3-4b:free")
     p.add_argument("--once", default=None, help="Send a single prompt and exit.")
     p.add_argument("--system", default="You are a helpful assistant.", help="System prompt.")
     return p.parse_args()
@@ -106,13 +109,6 @@ def mock_infer(messages: List[Message]) -> str:
 
     return " ".join(response_parts)
 
-# Minimal provider class so the registry is valid.
-class MockProvider:
-    @staticmethod
-    def infer(messages: List[Message]) -> str:
-        return mock_infer(messages)
-
-
 def openai_infer(model: Optional[str], messages: List[Message]) -> str:
     try:
         from openai import OpenAI
@@ -170,16 +166,12 @@ def qwen_infer(model: Optional[str], messages: List[Message]) -> str:
 
     If model is provided via CLI, it overrides the configured/default model.
     """
+    if QwenProvider is None:
+        raise RuntimeError("Qwen provider not available. Ensure project dependencies are installed.")
+
     provider = QwenProvider()
     chat_messages = [{"role": m.role, "content": m.content} for m in messages]
     return provider.chat(chat_messages, model_override=model)
-
-# Provider registry
-PROVIDERS = {
-    "mock": MockProvider,
-    "qwen": QwenProvider,
-}
-
 
 if __name__ == "__main__":
     args = parse_args()
