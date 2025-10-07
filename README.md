@@ -96,6 +96,17 @@ python -m pytest
 - The OpenAI and Qwen providers import their SDKs lazily; install dependencies with `pip install -r requirements.txt` if you plan to use them.
 - The Ollama and Qwen providers depend on the `requests` package for HTTP calls.
 
+## Roles (scaffolding)
+
+A role system is scaffolded under `src/roles/` to centralize chatbot behavior.
+
+- Add a new role by creating `src/roles/<name>_role.py` that exports:
+  - `get_system_prompt() -> str`
+  - optional `postprocess(reply: str, context: dict) -> str`
+- A default placeholder exists at `src/roles/default_role.py`.
+
+Wiring to select a role via CLI/env will be added later; current behavior remains unchanged.
+
 ## Repository status
 
 This starter is intentionally lightweight to make local iteration and remote CI easy. Extend it as you wish.
