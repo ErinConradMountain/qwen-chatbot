@@ -7,7 +7,6 @@ from typing import List, Dict, Any
 import json, os, requests
 
 # Reuse existing config and provider
-from src.config import load_config
 from src.providers.qwen_provider import QwenProvider
 from providers.ollama import OllamaProvider
 from core.stream import normalize_openai_sse, normalize_ollama_ndjson
@@ -33,11 +32,6 @@ async def api_chat_qwen(req: Request):
     data = await req.json()
     messages: List[Dict[str, Any]] = data.get("messages", [])
     model = data.get("model")
-
-    # Build config preferring Qwen/Ollama local by default
-    config = load_config(
-        provider_override="qwen",
-    )
 
     # Ensure messages minimally include a system prompt if provider expects
     if not messages:
