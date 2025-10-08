@@ -91,21 +91,26 @@ async def api_llm_stream(req: Request):
         headers["Authorization"] = f"Bearer {api_key}"
 
     def gen():
-        with requests.post(url, json=payload, headers=headers, stream=True, timeout=0) as r:
-            r.raise_for_status()
-            for line in r.iter_lines():
-                if not line:
-                    continue
-                # SSE lines look like: b'data: {"id":..., "choices":[{"delta":{"content":"t"}}]}'
-                if line.startswith(b"data: "):
-                    line = line[len(b"data: "):]
-                try:
-                    obj = json.loads(line)
-                except Exception:
-                    continue
-                d = normalize_openai_sse(obj)
-                if d and d.text:
-                    yield d.text
+        try:
+            with requests.post(url, json=payload, headers=headers, stream=True, timeout=None) as r:
+                r.raise_for_status()
+                for line in r.iter_lines():
+                    if not line:
+                        continue
+                    # SSE lines look like: b'data: {"id":..., "choices":[{"delta":{"content":"t"}}]}'
+                    if line.startswith(b"data: "):
+                        line = line[len(b"data: "):]
+                    try:
+                        obj = json.loads(line)
+                    except Exception:
+                        # e.g., [DONE] or keepalive
+                        continue
+                    d = normalize_openai_sse(obj)
+                    if d and d.text:
+                        yield d.text
+        except Exception as e:
+            # Gracefully end the stream to avoid incomplete chunked encoding on the client
+            yield f"\n[error] {str(e)}"
 
     return StreamingResponse(gen(), media_type="text/plain; charset=utf-8")
 
