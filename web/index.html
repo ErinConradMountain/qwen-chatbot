@@ -30,6 +30,8 @@
       </select>
       <label class="label">Model</label>
       <input id="model" class="input" placeholder="auto / default" />
+      <label class="label" style="margin-top:12px">System Prompt (optional)</label>
+      <textarea id="system-prompt" class="input" rows="5" placeholder="You are a helpful assistant. Answer concisely and do not repeat the user."></textarea>
       <div class="spacer"></div>
       <div class="status">
         <span class="dot" id="status-dot"></span>
@@ -42,8 +44,15 @@
         <div class="actions">
           <button id="toggle-theme" class="icon-btn" title="Toggle theme">🌗</button>
           <button id="clear-chat" class="icon-btn" title="Clear chat">🗑️</button>
+          <button id="test-conn" class="btn btn-secondary" title="Test connection">Test Connection</button>
         </div>
       </header>
+
+      <div id="banner" class="banner" hidden>
+        <span id="banner-text">Status</span>
+        <button id="banner-switch" class="btn btn-primary" style="margin-left:8px">Use Ollama</button>
+        <button id="banner-dismiss" class="icon-btn" style="margin-left:8px">✖</button>
+      </div>
 
       <section id="messages" class="messages" aria-live="polite" aria-label="Chat messages"></section>
 

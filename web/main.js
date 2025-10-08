@@ -10,8 +10,22 @@
   const toggleTheme = el('#toggle-theme');
   const providerEl = el('#provider');
   const modelEl = el('#model');
+  const sysPromptEl = el('#system-prompt');
+  const banner = el('#banner');
+  const bannerText = el('#banner-text');
+  const bannerSwitch = el('#banner-switch');
+  const bannerDismiss = el('#banner-dismiss');
+  const testConnBtn = el('#test-conn');
 
   let convo = [];
+  // Default provider to Ollama for reliable local runs
+  if (providerEl && !localStorage.getItem('provider_pref')) {
+    providerEl.value = 'ollama';
+  } else {
+    const pv = localStorage.getItem('provider_pref');
+    if (pv) providerEl.value = pv;
+  }
+  providerEl?.addEventListener('change', () => localStorage.setItem('provider_pref', providerEl.value));
 
   function setStatus(state) {
     const map = { idle: ['#94a3b8', 'Idle'], sending: ['#f59e0b', 'Sending...'], streaming: ['#22c55e', 'Streaming...'], error: ['#ef4444', 'Error'] };
@@ -65,7 +79,7 @@
       const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages, model: provider === 'ollama' ? model : (model || 'qwen-stream') }),
+        body: JSON.stringify({ messages, model: provider === 'ollama' ? model : (model || 'qwen-stream'), system_prompt: (sysPromptEl?.value || '').trim() || undefined }),
         signal: ac.signal,
       });
       if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -73,16 +87,28 @@
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let acc = '';
+      let buffer = '';
       let tokens = 0;
       const t0 = performance.now();
+      let lastFlush = 0;
+      const flush = () => {
+        if (!buffer) return;
+        const out = buffer;
+        buffer = '';
+        tokens += 1;
+        if (onChunk) onChunk(out, { tokens, tps: (tokens * 1000) / (performance.now() - t0 + 1) });
+      };
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
         const chunk = decoder.decode(value, { stream: true });
         acc += chunk;
-        tokens += 1;
-        if (onChunk) onChunk(chunk, { tokens, tps: (tokens * 1000) / (performance.now() - t0 + 1) });
+        buffer += chunk;
+        const now = performance.now();
+        const shouldFlush = buffer.endsWith('\n') || /[\.!?，。！？]$/.test(buffer) || (now - lastFlush) > 40;
+        if (shouldFlush) { flush(); lastFlush = now; }
       }
+      flush();
       setStatus('idle');
       currentAbort = null;
       return { reply: acc };
@@ -90,6 +116,14 @@
       console.error(e);
       setStatus('error');
       currentAbort = null;
+      // If proxy path failed, suggest switching to Ollama
+      try {
+        const provider = providerEl.value || 'qwen';
+        if (provider !== 'ollama') {
+          banner.hidden = false;
+          bannerText.textContent = 'Proxy not reachable (or error). Switch to Ollama local?';
+        }
+      } catch {}
       throw e;
     }
   }
@@ -143,7 +177,7 @@
       placeholder.content = reply;
       localStorage.setItem('qwen_chat', JSON.stringify(convo));
     } catch (e) {
-      addMessage('assistant', 'Sorry, something went wrong.');
+      addMessage('assistant', `[error] ${e && e.message ? e.message : 'request failed'}`);
     }
   });
 
@@ -152,6 +186,38 @@
 
   clearBtn.addEventListener('click', resetChat);
   newChatBtn.addEventListener('click', resetChat);
+  bannerSwitch.addEventListener('click', () => { providerEl.value = 'ollama'; banner.hidden = true; });
+  bannerDismiss.addEventListener('click', () => { banner.hidden = true; });
+  testConnBtn.addEventListener('click', async () => {
+    setStatus('sending');
+    try {
+      const res = await fetch('/api/health', { method: 'GET' });
+      const data = await res.json();
+      const litellmOk = data.detail && data.detail.litellm === 200;
+      const ollamaOk = data.detail && data.detail.ollama === 200;
+      banner.hidden = false;
+      if (litellmOk && ollamaOk) {
+        bannerText.textContent = 'Connections OK: LiteLLM and Ollama are reachable.';
+        statusDot.classList.remove('warn','err');
+        statusDot.classList.add('ok');
+      } else if (ollamaOk) {
+        bannerText.textContent = 'Ollama is reachable. LiteLLM proxy not reachable.';
+        statusDot.classList.remove('ok','err');
+        statusDot.classList.add('warn');
+      } else {
+        bannerText.textContent = 'No backends reachable. Start Ollama or the proxy.';
+        statusDot.classList.remove('ok','warn');
+        statusDot.classList.add('err');
+      }
+      setStatus('idle');
+    } catch (e) {
+      banner.hidden = false;
+      bannerText.textContent = 'Health check failed. Is the server running?';
+      statusDot.classList.remove('ok','warn');
+      statusDot.classList.add('err');
+      setStatus('error');
+    }
+  });
 
   toggleTheme.addEventListener('click', () => {
     const v = document.documentElement.getAttribute('data-theme');

@@ -131,6 +131,11 @@ Troubleshooting:
 - Port in use: change port via `PORT=4001 scripts/run_litellm.sh`
 - Model not pulled: `ollama pull qwen2.5-7b-instruct`
 - Proxy not running: verify `.run/litellm.pid` and check `pip show litellm`
+ - Windows: if scripts fail to run, set execution policy for current user: `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`
+
+Health checks:
+- Server: `GET /api/health` (requires X-Auth-Token if set) returns status for LiteLLM and Ollama.
+- LiteLLM: default at `http://127.0.0.1:4000`; change with `LITELLM_BASE_URL`.
 
 Planned improvements:
 - Token streaming (SSE) for live responses

@@ -20,18 +20,24 @@ class OllamaProvider:
     def stream_generate(self, messages: List[Dict[str, Any]], model_override: Optional[str] = None):
         model = model_override or os.getenv("MODEL_NAME", "qwen2.5:7b-instruct")
         url = f"{self.base_url}/api/generate"
-        # Compose a simple prompt from message history
-        parts: List[str] = []
+        # Compose a clearer dialogue-style prompt to reduce parroting
+        sys_text = None
+        turns: List[str] = []
         for m in messages:
             role = m.get("role", "user")
             content = m.get("content", "")
             if role == "system":
-                parts.append(f"[System] {content}\n")
+                sys_text = content
             elif role == "assistant":
-                parts.append(f"Assistant: {content}\n")
+                turns.append(f"Assistant: {content}\n")
             else:
-                parts.append(f"User: {content}\n")
-        prompt = "".join(parts) + "Assistant: "
+                turns.append(f"User: {content}\n")
+        if not sys_text:
+            sys_text = (
+                "You are a helpful assistant. Answer concisely in complete sentences. "
+                "Do not repeat the user's words unless explicitly asked."
+            )
+        prompt = f"System: {sys_text}\n" + "".join(turns) + "Assistant: "
         payload = {"model": model, "prompt": prompt, "stream": True}
         # Use no overall timeout for the stream; the client can cancel
         resp = requests.post(url, json=payload, stream=True, timeout=None)
