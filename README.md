@@ -90,6 +90,54 @@ pip install -r requirements.txt
 python -m pytest
 ```
 
+## Web Chat (local UI)
+
+This repo includes a simple web UI served via FastAPI.
+
+- Install server deps: `pip install fastapi uvicorn`
+- Set `OPENROUTER_API_KEY` (or add `.env`) for Qwen via OpenRouter.
+- Start server: `python webserver.py`
+- Open: `http://127.0.0.1:8000/`
+
+In the sidebar you can switch Provider: Qwen (OpenRouter) or Ollama (local). The UI calls `/api/chat/qwen` or `/api/chat/ollama` accordingly and streams the full text as it’s generated (concatenated server-side for now). Static assets live under `web/`.
+
+Streaming details:
+- Ollama: true token streaming via `/api/generate` with `stream: true` (NDJSON parsed server-side and flushed to the client).
+- Qwen via LiteLLM proxy: unified OpenAI-compatible streaming from `http://localhost:4000/v1/chat/completions`. Use the included `litellm_config.yaml` and scripts to start the proxy locally. The UI calls `/api/llm/stream` which forwards tokens.
+
+Start LiteLLM locally:
+
+```powershell
+scripts\run_litellm.ps1
+```
+
+or on macOS/Linux:
+
+```bash
+scripts/run_litellm.sh
+```
+
+Environment variables:
+- `LITELLM_BASE_URL` (default `http://127.0.0.1:4000`)
+- `CHATKIT_AUTH_TOKEN` optional; if set, routes require `X-Auth-Token` header
+- `MODEL_NAME` default model for Ollama
+- `OPENROUTER_API_KEY` for OpenRouter Qwen if you use that path
+
+Dev proxy management:
+- Start: `scripts/run_litellm.sh` (Linux/mac) or `scripts\run_litellm.ps1` (Windows)
+- Stop: `scripts/stop_litellm.sh` (Linux/mac) or kill the PID from `.run/litellm.pid` on Windows
+
+Troubleshooting:
+- Port in use: change port via `PORT=4001 scripts/run_litellm.sh`
+- Model not pulled: `ollama pull qwen2.5-7b-instruct`
+- Proxy not running: verify `.run/litellm.pid` and check `pip show litellm`
+
+Planned improvements:
+- Token streaming (SSE) for live responses
+- Provider/model switcher in the sidebar
+- Chat history and export
+- Better error surfaces and retries
+
 ## Notes
 
 - The script defaults to the `mock` provider so it never sends network traffic unless you opt in.

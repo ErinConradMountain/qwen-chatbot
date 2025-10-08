@@ -1,0 +1,2 @@
+litellm[proxy]==1.43.4
+# Pin the proxy version to avoid SSE drift during development.
