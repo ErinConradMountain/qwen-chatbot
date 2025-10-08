@@ -51,6 +51,19 @@ async def api_chat_ollama(req: Request):
     data = await req.json()
     messages: List[Dict[str, Any]] = data.get("messages", [])
     model = data.get("model")
+    system_prompt = (data.get("system_prompt") or "").strip()
+
+    default_sys = (
+        "You are a helpful assistant. Answer concisely in complete sentences. "
+        "Do not repeat the user's words unless explicitly asked. If a question is unclear, ask a brief clarifying question."
+    )
+    if system_prompt:
+        # Prepend system prompt if not already present
+        if not messages or messages[0].get("role") != "system":
+            messages = [{"role": "system", "content": system_prompt}] + messages
+    else:
+        if not messages or messages[0].get("role") != "system":
+            messages = [{"role": "system", "content": default_sys}] + messages
 
     provider = OllamaProvider()
 
@@ -81,6 +94,18 @@ async def api_llm_stream(req: Request):
     data = await req.json()
     messages = data.get("messages", [])
     model = data.get("model", "qwen-stream")
+    system_prompt = (data.get("system_prompt") or "").strip()
+
+    default_sys = (
+        "You are a helpful assistant. Answer concisely in complete sentences. "
+        "Do not repeat the user's words unless explicitly asked. If a question is unclear, ask a brief clarifying question."
+    )
+    if system_prompt:
+        if not messages or messages[0].get("role") != "system":
+            messages = [{"role": "system", "content": system_prompt}] + messages
+    else:
+        if not messages or messages[0].get("role") != "system":
+            messages = [{"role": "system", "content": default_sys}] + messages
     base = os.getenv("LITELLM_BASE_URL", "http://127.0.0.1:4000")
     url = f"{base}/v1/chat/completions"
     payload = {"model": model, "messages": messages, "stream": True}
@@ -91,26 +116,41 @@ async def api_llm_stream(req: Request):
         headers["Authorization"] = f"Bearer {api_key}"
 
     def gen():
+        # Try LiteLLM proxy first
         try:
-            with requests.post(url, json=payload, headers=headers, stream=True, timeout=None) as r:
+            with requests.post(url, json=payload, headers=headers, stream=True, timeout=5) as r:
                 r.raise_for_status()
                 for line in r.iter_lines():
                     if not line:
                         continue
-                    # SSE lines look like: b'data: {"id":..., "choices":[{"delta":{"content":"t"}}]}'
                     if line.startswith(b"data: "):
                         line = line[len(b"data: "):]
                     try:
                         obj = json.loads(line)
                     except Exception:
-                        # e.g., [DONE] or keepalive
                         continue
                     d = normalize_openai_sse(obj)
                     if d and d.text:
                         yield d.text
-        except Exception as e:
-            # Gracefully end the stream to avoid incomplete chunked encoding on the client
-            yield f"\n[error] {str(e)}"
+                return
+        except Exception:
+            # If OpenRouter key is configured, use QwenProvider directly (no Ollama required)
+            try:
+                if os.getenv("OPENROUTER_API_KEY"):
+                    provider = QwenProvider()
+                    text = provider.chat(messages, model_override=model)
+                    # Stream in small chunks so UI gets progressive output
+                    chunk_size = 64
+                    for i in range(0, len(text), chunk_size):
+                        yield text[i:i+chunk_size]
+                    return
+            except Exception as e:
+                yield f"[error] {str(e)}"
+            # Otherwise, return a clear hint instead of falling back to Ollama
+            yield (
+                "[error] Backend unavailable. Start LiteLLM proxy on :4000 or set OPENROUTER_API_KEY to use OpenRouter. "
+                "Tip: use scripts/run_litellm.ps1 or pick 'Ollama (local)' if you have Ollama running."
+            )
 
     return StreamingResponse(gen(), media_type="text/plain; charset=utf-8")
 
@@ -141,4 +181,18 @@ def health():
 
 
 if __name__ == "__main__":
+    # Optional: log a quick health probe for visibility
+    try:
+        import requests, os
+        base = os.getenv("LITELLM_BASE_URL", "http://127.0.0.1:4000")
+        ollama = os.getenv("OLLAMA_BASE_URL", "http://127.0.0.1:11434")
+        r1 = requests.post(f"{base}/v1/chat/completions", json={"model": "qwen-stream", "messages": [{"role":"user","content":"hi"}], "stream": False, "max_tokens": 1}, timeout=2)
+        print(f"[health] litellm: {r1.status_code}")
+    except Exception as e:
+        print(f"[health] litellm: error {e}")
+    try:
+        r2 = requests.get(f"{ollama}/api/tags", timeout=2)
+        print(f"[health] ollama: {r2.status_code}")
+    except Exception as e:
+        print(f"[health] ollama: error {e}")
     uvicorn.run(app, host="127.0.0.1", port=8000)
