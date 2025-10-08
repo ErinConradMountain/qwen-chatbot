@@ -71,7 +71,9 @@
     try {
       const provider = providerEl.value || 'qwen';
       const model = (modelEl.value || '').trim() || undefined;
-      const url = provider === 'ollama' ? '/api/chat/ollama' : '/api/llm/stream';
+      const url = provider === 'ollama'
+        ? '/api/chat/ollama'
+        : (provider === 'qwen' ? '/api/chat/qwen' : '/api/llm/stream');
 
       // True streaming; allow cancellation
       const ac = new AbortController();
@@ -79,7 +81,11 @@
       const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages, model: provider === 'ollama' ? model : (model || 'qwen-stream'), system_prompt: (sysPromptEl?.value || '').trim() || undefined }),
+        body: JSON.stringify({
+          messages,
+          model: provider === 'ollama' ? model : (provider === 'qwen' ? model : (model || 'qwen-stream')),
+          system_prompt: (sysPromptEl?.value || '').trim() || undefined,
+        }),
         signal: ac.signal,
       });
       if (!res.ok) throw new Error('HTTP ' + res.status);
