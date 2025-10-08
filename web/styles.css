@@ -35,6 +35,7 @@ body { background: radial-gradient(1200px 600px at 10% 0%, #172042, transparent)
 .brand { font-weight: 700; letter-spacing: .2px; font-size: 18px; }
 .label { color: var(--muted); font-size: 12px; margin-top: 8px; }
 .input, .select { width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--panel); color: var(--text); }
+.static-field { width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--panel); color: var(--muted); font-size: 14px; }
 .spacer { flex: 1; }
 .status { display:flex; align-items:center; gap:8px; color: var(--muted); font-size: 14px; }
 .status .dot { width:10px; height:10px; border-radius:50%; background:#94a3b8; box-shadow: 0 0 12px rgba(148,163,184,.5); }

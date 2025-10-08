@@ -1,17 +1,21 @@
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse, FileResponse, StreamingResponse
+from fastapi.responses import JSONResponse, FileResponse
 from fastapi import Depends, Header, HTTPException
 from fastapi.staticfiles import StaticFiles
 import uvicorn
 from typing import List, Dict, Any
-import json, os, requests
+import json, os
+from dotenv import load_dotenv
+import logging
+from requests import HTTPError
 
-# Reuse existing config and provider
+# Load environment variables from .env at project root
+load_dotenv()
+
+# Qwen (OpenRouter) provider only
 from src.providers.qwen_provider import QwenProvider
-from providers.ollama import OllamaProvider
-from core.stream import normalize_openai_sse, normalize_ollama_ndjson
 
-app = FastAPI(title="Qwen Chatbot Server")
+app = FastAPI(title="Qwen Chatbot Server (Qwen-only)")
 
 app.mount("/web", StaticFiles(directory="web"), name="web")
 
@@ -31,168 +35,31 @@ async def root_index():
 async def api_chat_qwen(req: Request):
     data = await req.json()
     messages: List[Dict[str, Any]] = data.get("messages", [])
-    model = data.get("model")
 
-    # Ensure messages minimally include a system prompt if provider expects
     if not messages:
         messages = [{"role": "user", "content": "Hello"}]
 
-    # StreamingResponse (concatenate then send). Real SSE chunking can be added later.
-    def generate():
+    try:
         provider = QwenProvider()
-        text = provider.chat(messages, model_override=model) if model else provider.chat(messages)
-        yield text
-
-    return StreamingResponse(generate(), media_type="text/plain; charset=utf-8")
-
-
-@app.post("/api/chat/ollama", dependencies=[Depends(require_auth)])
-async def api_chat_ollama(req: Request):
-    data = await req.json()
-    messages: List[Dict[str, Any]] = data.get("messages", [])
-    model = data.get("model")
-    system_prompt = (data.get("system_prompt") or "").strip()
-
-    default_sys = (
-        "You are a helpful assistant. Answer concisely in complete sentences. "
-        "Do not repeat the user's words unless explicitly asked. If a question is unclear, ask a brief clarifying question."
-    )
-    if system_prompt:
-        # Prepend system prompt if not already present
-        if not messages or messages[0].get("role") != "system":
-            messages = [{"role": "system", "content": system_prompt}] + messages
-    else:
-        if not messages or messages[0].get("role") != "system":
-            messages = [{"role": "system", "content": default_sys}] + messages
-
-    provider = OllamaProvider()
-
-    def stream():
-        # Use Ollama /api/generate stream=true with concatenated prompt from messages
-        # Fall back to /api/chat non-stream if needed (handled in provider)
-        with provider.stream_generate(messages, model_override=model) as resp:
-            for line in resp.iter_lines():
-                if not line:
-                    continue
-                try:
-                    obj = json.loads(line)
-                    d = normalize_ollama_ndjson(obj)
-                    if d and d.text:
-                        yield d.text
-                except Exception:
-                    # If a non-JSON line slips through, just forward raw
-                    yield line.decode("utf-8", errors="ignore")
-
-    return StreamingResponse(stream(), media_type="text/plain; charset=utf-8")
+        reply = provider.chat(messages)
+        return JSONResponse({"reply": reply})
+    except HTTPError as he:
+        status = getattr(he.response, "status_code", None) or 502
+        msg = f"OpenRouter HTTPError {status}: {he}"
+        logging.exception(msg)
+        raise HTTPException(status_code=status, detail=msg)
+    except Exception as e:
+        msg = f"Chat failed: {e}"
+        logging.exception(msg)
+        raise HTTPException(status_code=500, detail=msg)
 
 
-@app.post("/api/llm/stream", dependencies=[Depends(require_auth)])
-async def api_llm_stream(req: Request):
-    """Unified OpenAI-compatible streaming proxy. Expects messages + model.
-    Defaults to LiteLLM at http://localhost:4000/v1/chat/completions.
-    """
-    data = await req.json()
-    messages = data.get("messages", [])
-    model = data.get("model", "qwen-stream")
-    system_prompt = (data.get("system_prompt") or "").strip()
-
-    default_sys = (
-        "You are a helpful assistant. Answer concisely in complete sentences. "
-        "Do not repeat the user's words unless explicitly asked. If a question is unclear, ask a brief clarifying question."
-    )
-    if system_prompt:
-        if not messages or messages[0].get("role") != "system":
-            messages = [{"role": "system", "content": system_prompt}] + messages
-    else:
-        if not messages or messages[0].get("role") != "system":
-            messages = [{"role": "system", "content": default_sys}] + messages
-    base = os.getenv("LITELLM_BASE_URL", "http://127.0.0.1:4000")
-    url = f"{base}/v1/chat/completions"
-    payload = {"model": model, "messages": messages, "stream": True}
-    headers = {"Content-Type": "application/json"}
-    # Optional: pass through OpenAI-style api key if set
-    api_key = os.getenv("LITELLM_API_KEY")
-    if api_key:
-        headers["Authorization"] = f"Bearer {api_key}"
-
-    def gen():
-        # Try LiteLLM proxy first
-        try:
-            with requests.post(url, json=payload, headers=headers, stream=True, timeout=5) as r:
-                r.raise_for_status()
-                for line in r.iter_lines():
-                    if not line:
-                        continue
-                    if line.startswith(b"data: "):
-                        line = line[len(b"data: "):]
-                    try:
-                        obj = json.loads(line)
-                    except Exception:
-                        continue
-                    d = normalize_openai_sse(obj)
-                    if d and d.text:
-                        yield d.text
-                return
-        except Exception:
-            # If OpenRouter key is configured, use QwenProvider directly (no Ollama required)
-            try:
-                if os.getenv("OPENROUTER_API_KEY"):
-                    provider = QwenProvider()
-                    text = provider.chat(messages, model_override=model)
-                    # Stream in small chunks so UI gets progressive output
-                    chunk_size = 64
-                    for i in range(0, len(text), chunk_size):
-                        yield text[i:i+chunk_size]
-                    return
-            except Exception as e:
-                yield f"[error] {str(e)}"
-            # Otherwise, return a clear hint instead of falling back to Ollama
-            yield (
-                "[error] Backend unavailable. Start LiteLLM proxy on :4000 or set OPENROUTER_API_KEY to use OpenRouter. "
-                "Tip: use scripts/run_litellm.ps1 or pick 'Ollama (local)' if you have Ollama running."
-            )
-
-    return StreamingResponse(gen(), media_type="text/plain; charset=utf-8")
-
-
-@app.get("/api/health", dependencies=[Depends(require_auth)])
+@app.get("/api/health")
 def health():
-    ok = True
-    detail = {}
-    try:
-        base = os.getenv("LITELLM_BASE_URL", "http://127.0.0.1:4000")
-        url = f"{base}/v1/chat/completions"
-        payload = {"model": "qwen-stream", "messages": [{"role": "user", "content": "hi"}], "stream": False, "max_tokens": 1}
-        r = requests.post(url, json=payload, timeout=3)
-        detail["litellm"] = r.status_code
-    except Exception as e:
-        ok = False
-        detail["litellm_error"] = str(e)
-
-    try:
-        ollama = os.getenv("OLLAMA_BASE_URL", "http://127.0.0.1:11434")
-        r2 = requests.get(f"{ollama}/api/tags", timeout=3)
-        detail["ollama"] = r2.status_code
-    except Exception as e:
-        ok = False
-        detail["ollama_error"] = str(e)
-
-    return {"ok": ok, "detail": detail}
+    # Minimal health: just confirm we have an API key
+    ok = bool(os.getenv("OPENROUTER_API_KEY"))
+    return {"ok": ok}
 
 
 if __name__ == "__main__":
-    # Optional: log a quick health probe for visibility
-    try:
-        import requests, os
-        base = os.getenv("LITELLM_BASE_URL", "http://127.0.0.1:4000")
-        ollama = os.getenv("OLLAMA_BASE_URL", "http://127.0.0.1:11434")
-        r1 = requests.post(f"{base}/v1/chat/completions", json={"model": "qwen-stream", "messages": [{"role":"user","content":"hi"}], "stream": False, "max_tokens": 1}, timeout=2)
-        print(f"[health] litellm: {r1.status_code}")
-    except Exception as e:
-        print(f"[health] litellm: error {e}")
-    try:
-        r2 = requests.get(f"{ollama}/api/tags", timeout=2)
-        print(f"[health] ollama: {r2.status_code}")
-    except Exception as e:
-        print(f"[health] ollama: error {e}")
     uvicorn.run(app, host="127.0.0.1", port=8000)

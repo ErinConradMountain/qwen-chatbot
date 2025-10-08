@@ -24,12 +24,9 @@
       <div class="brand">Qwen Chat</div>
       <button id="new-chat" class="btn btn-secondary">New Chat</button>
       <label class="label">Provider</label>
-      <select id="provider" class="select">
-        <option value="qwen" selected>Qwen (OpenRouter)</option>
-        <option value="ollama">Ollama (local)</option>
-      </select>
+      <div class="static-field">Qwen (OpenRouter)</div>
       <label class="label">Model</label>
-      <input id="model" class="input" placeholder="auto / default" />
+      <div class="static-field">qwen/qwen3-4b:free</div>
       <label class="label" style="margin-top:12px">System Prompt (optional)</label>
       <textarea id="system-prompt" class="input" rows="5" placeholder="You are a helpful assistant. Answer concisely and do not repeat the user."></textarea>
       <div class="spacer"></div>
@@ -42,16 +39,15 @@
       <header class="chat-header">
         <div class="title">Assistant</div>
         <div class="actions">
-          <button id="toggle-theme" class="icon-btn" title="Toggle theme">🌗</button>
-          <button id="clear-chat" class="icon-btn" title="Clear chat">🗑️</button>
+          <button id="toggle-theme" class="icon-btn" title="Toggle theme">Theme</button>
+          <button id="clear-chat" class="icon-btn" title="Clear chat">Clear</button>
           <button id="test-conn" class="btn btn-secondary" title="Test connection">Test Connection</button>
         </div>
       </header>
 
       <div id="banner" class="banner" hidden>
         <span id="banner-text">Status</span>
-        <button id="banner-switch" class="btn btn-primary" style="margin-left:8px">Use Ollama</button>
-        <button id="banner-dismiss" class="icon-btn" style="margin-left:8px">✖</button>
+        <button id="banner-dismiss" class="icon-btn" style="margin-left:8px">Dismiss</button>
       </div>
 
       <section id="messages" class="messages" aria-live="polite" aria-label="Chat messages"></section>
@@ -59,7 +55,7 @@
       <form id="composer" class="composer" autocomplete="off">
         <textarea id="input" rows="1" placeholder="Type a message..." minlength="1" required></textarea>
         <div class="composer-actions">
-          <button id="send" class="btn btn-primary" type="submit">Send ⮕</button>
+          <button id="send" class="btn btn-primary" type="submit">Send</button>
         </div>
       </form>
     </main>
