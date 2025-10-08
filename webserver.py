@@ -54,7 +54,7 @@ async def api_chat_ollama(req: Request):
 
     provider = OllamaProvider()
 
-    async def stream():
+    def stream():
         # Use Ollama /api/generate stream=true with concatenated prompt from messages
         # Fall back to /api/chat non-stream if needed (handled in provider)
         with provider.stream_generate(messages, model_override=model) as resp:

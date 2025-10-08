@@ -33,8 +33,8 @@ class OllamaProvider:
                 parts.append(f"User: {content}\n")
         prompt = "".join(parts) + "Assistant: "
         payload = {"model": model, "prompt": prompt, "stream": True}
-    # Use no overall timeout for the stream; the client can cancel
-    resp = requests.post(url, json=payload, stream=True, timeout=None)
+        # Use no overall timeout for the stream; the client can cancel
+        resp = requests.post(url, json=payload, stream=True, timeout=None)
         resp.raise_for_status()
         return resp
 
