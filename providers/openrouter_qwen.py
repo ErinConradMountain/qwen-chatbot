@@ -10,7 +10,7 @@ class OpenRouterQwenProvider:
         self.api_key = os.getenv("OPENROUTER_API_KEY", "").strip()
         self.base_url = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1").rstrip("/")
         if not self.api_key:
-            print("Missing OPENROUTER_API_KEY for Qwen provider", file=sys.stderr)
+            raise RuntimeError("OPENROUTER_API_KEY is not set. Set it in OS env or in a .env file.")
 
     def chat(self, model: str, messages: List[Dict[str, str]], **kw) -> str:
         url = f"{self.base_url}/chat/completions"
@@ -28,12 +28,12 @@ class OpenRouterQwenProvider:
                 body = resp.read()
                 parsed = json.loads(body)
         except Exception as e:
-            return f"[error:qwen] {e}"
+            raise RuntimeError(f"OpenRouter API request failed: {e}") from e
 
         try:
             return parsed["choices"][0]["message"]["content"]
-        except Exception:
-            return "[error:qwen] malformed response"
+        except (KeyError, IndexError, TypeError) as e:
+            raise RuntimeError(f"OpenRouter API returned malformed response: {parsed}") from e
 
 
 def provider_instance():

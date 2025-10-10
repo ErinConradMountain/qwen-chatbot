@@ -4,7 +4,7 @@ agents:
     name: "Bootstrap Agent"
     system_template: ""
     provider: "qwen"
-    model: "qwen2.5-7b-instruct:free"
+    model: "qwen/qwen2.5-7b-instruct:free"
     policies: { max_tokens: 512 }
     capabilities: { streaming: false }
     routing: { tags: ["generic"] }
@@ -14,7 +14,7 @@ agents:
     name: "Auxiliary Agent"
     system_template: ""
     provider: "qwen"
-    model: "qwen2.5-7b-instruct:free"
+    model: "qwen/qwen2.5-7b-instruct:free"
     policies: {}
     capabilities: {}
     routing: { tags: ["fallback"] }
