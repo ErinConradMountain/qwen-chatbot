@@ -26,18 +26,9 @@ class QwenProvider:
             "OPENROUTER_API_KEY"
         )
         self.model = getattr(_config, "MODEL_NAME", None) or os.getenv(
-            "MODEL_NAME", "qwen/qwen3-4b:free"
+            "MODEL_NAME", "deepseek/deepseek-r1-0528-qwen3-8b:free"
         )
-        base = getattr(_config, "OPENROUTER_BASE_URL", None) or os.getenv(
-            "OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"
-        )
-        self.base_url = f"{base.rstrip('/')}/chat/completions"
-        self.http_referer = getattr(_config, "OPENROUTER_HTTP_REFERER", None) or os.getenv(
-            "OPENROUTER_HTTP_REFERER", "http://localhost:8000"
-        )
-        self.x_title = getattr(_config, "OPENROUTER_X_TITLE", None) or os.getenv(
-            "OPENROUTER_X_TITLE", "QwenBot"
-        )
+        self.base_url = "https://openrouter.ai/api/v1/chat/completions"
 
     def chat(
         self, messages: List[Dict[str, Any]], model_override: str | None = None
@@ -49,8 +40,6 @@ class QwenProvider:
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
-            "HTTP-Referer": self.http_referer,
-            "X-Title": self.x_title,
         }
         model = model_override or self.model
         payload = {"model": model, "messages": messages}

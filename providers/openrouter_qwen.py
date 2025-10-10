@@ -15,7 +15,7 @@ class OpenRouterQwenProvider:
     def chat(self, model: str, messages: List[Dict[str, str]], **kw) -> str:
         url = f"{self.base_url}/chat/completions"
         payload = {
-            "model": model or "qwen/qwen3-4b:free",
+            "model": model or "deepseek/deepseek-r1-0528-qwen3-8b:free",
             "messages": messages,
         }
         data = json.dumps(payload).encode("utf-8")
@@ -38,4 +38,3 @@ class OpenRouterQwenProvider:
 
 def provider_instance():
     return OpenRouterQwenProvider()
-

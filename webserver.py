@@ -1,12 +1,11 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Depends, Header, HTTPException
 from fastapi.responses import JSONResponse, FileResponse
-from fastapi import Depends, Header, HTTPException
 from fastapi.staticfiles import StaticFiles
 import uvicorn
 from typing import List, Dict, Any
-import json, os
-from dotenv import load_dotenv
+import os
 import logging
+from dotenv import load_dotenv
 from requests import HTTPError
 
 # Load environment variables from .env at project root
@@ -35,9 +34,13 @@ async def root_index():
 async def api_chat_qwen(req: Request):
     data = await req.json()
     messages: List[Dict[str, Any]] = data.get("messages", [])
+    system_prompt = (data.get("system_prompt") or "").strip()
 
     if not messages:
         messages = [{"role": "user", "content": "Hello"}]
+
+    if system_prompt:
+        messages = [{"role": "system", "content": system_prompt}] + messages
 
     try:
         provider = QwenProvider()
@@ -54,9 +57,8 @@ async def api_chat_qwen(req: Request):
         raise HTTPException(status_code=500, detail=msg)
 
 
-@app.get("/api/health")
+@app.get("/api/health", dependencies=[Depends(require_auth)])
 def health():
-    # Minimal health: just confirm we have an API key
     ok = bool(os.getenv("OPENROUTER_API_KEY"))
     return {"ok": ok}
 

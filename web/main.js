@@ -187,8 +187,9 @@
   try {
     const saved = localStorage.getItem('qwen_chat');
     if (saved) {
-      convo = JSON.parse(saved);
-      convo.forEach((m) => addMessage(m.role, m.content));
+      const savedMessages = JSON.parse(saved);
+      convo = [];
+      savedMessages.forEach((m) => addMessage(m.role, m.content));
     }
   } catch {
     /* ignore restore issues */

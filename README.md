@@ -24,6 +24,23 @@ python .\chatbot.py --provider mock
 
 The mock provider keeps lightweight conversational context so you can exercise the chat loop without external APIs.
 
+## 🛠 Setup Environment Variables
+
+1. Copy the example file:
+
+  ```bash
+  cp .env.example .env
+  ```
+
+  PowerShell equivalent:
+
+  ```powershell
+  Copy-Item .env.example .env
+  ```
+
+2. Open `.env` and set your keys (for example, `OPENROUTER_API_KEY=sk-or-...`).
+3. Save the file and restart your terminal or app so the new variables are loaded.
+
 ## Use an OpenAI-compatible API
 
 Requirements:
@@ -49,7 +66,7 @@ python .\chatbot.py --provider openai --model your-model-name --once "Hello"
 
 Requirements:
 - `OPENROUTER_API_KEY` exported or placed in a `.env` file (python-dotenv is supported)
-- Optional: set `MODEL_NAME` to override the default `qwen/qwen3-4b:free`
+- Optional: set `MODEL_NAME` to override the default `deepseek/deepseek-r1-0528-qwen3-8b:free`
 
 Example:
 
