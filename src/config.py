@@ -13,4 +13,6 @@ except Exception:
     pass
 
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
-MODEL_NAME = os.getenv("MODEL_NAME", "qwen/qwen3-4b:free")
+MODEL_NAME = os.getenv(
+    "MODEL_NAME", "deepseek/deepseek-r1-0528-qwen3-8b:free"
+)

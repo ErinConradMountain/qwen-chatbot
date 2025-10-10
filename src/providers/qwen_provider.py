@@ -26,7 +26,7 @@ class QwenProvider:
             "OPENROUTER_API_KEY"
         )
         self.model = getattr(_config, "MODEL_NAME", None) or os.getenv(
-            "MODEL_NAME", "qwen/qwen3-4b:free"
+            "MODEL_NAME", "deepseek/deepseek-r1-0528-qwen3-8b:free"
         )
         self.base_url = "https://openrouter.ai/api/v1/chat/completions"
 

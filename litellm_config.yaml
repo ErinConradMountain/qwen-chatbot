@@ -1,0 +1,8 @@
+model_list:
+  - model_name: qwen-stream
+    litellm_params:
+      # Use local Ollama as OpenAI-compatible backend via LiteLLM
+      model: ollama/qwen2.5-7b-instruct
+      api_base: http://localhost:11434
+      stream: true
+
