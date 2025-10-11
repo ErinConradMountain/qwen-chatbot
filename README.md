@@ -154,6 +154,24 @@ Health checks:
 - Server: `GET /api/health` (requires X-Auth-Token if set) returns status for LiteLLM and Ollama.
 - LiteLLM: default at `http://127.0.0.1:4000`; change with `LITELLM_BASE_URL`.
 
+### ✅ Verified working state (10 Oct 2025)
+
+The chatbot was verified working locally at `http://127.0.0.1:8000/` with the following setup:
+
+- Python venv activated and dependencies installed (`pip install -r requirements.txt`).
+- `.env` present at repo root with a valid `OPENROUTER_API_KEY=sk-or-...`.
+- Server started from repo root: `python webserver.py` and showing:
+  - `Uvicorn running on http://127.0.0.1:8000`
+- Health check: `GET /api/health` returned `{ "ok": true }`.
+- New chat started in the UI (cleared previous local history) and a prompt returned an AI reply.
+
+Tips:
+- If the chat shows prior errors, clear saved state:
+  - In the UI, click "New chat" or "Clear chat"; or run in DevTools console: `localStorage.removeItem('qwen_chat')` and refresh.
+- If you changed `.env`, restart the server so it reloads environment variables.
+- Port in use errors (WinError 10048): stop the existing process on 8000 or run `python -m uvicorn webserver:app --host 127.0.0.1 --port 8010`.
+- OpenRouter 401/400: confirm key starts with `sk-or-` and try a model like `qwen/qwen3-4b:free`.
+
 Planned improvements:
 - Token streaming (SSE) for live responses
 - Provider/model switcher in the sidebar
