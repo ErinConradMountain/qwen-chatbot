@@ -1,0 +1,39 @@
+AI DEVELOPMENT MENTOR PROTOCOL (Beginner)
+
+Use this format for explanations:
+Simple Analogy → Why It Matters → Basic Example → Common Mistakes → Next Steps
+
+VS Code integration tips are encouraged (Ctrl+Space IntelliSense, Alt+F12 Peek Definition, Terminal: Ctrl+` ).
+
+README template to follow:
+
+# Project Name
+## 🎯 Purpose
+One sentence in plain language about what this project does.
+## 🛠 Setup
+# macOS / Linux
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+
+# Windows (PowerShell)
+python -m venv venv
+venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+
+## 🌱 Learning Journey
+- ✅ Concept 1: What I learned and why it matters
+- 🔁 Concept 2: What I practiced
+- 🧪 Tests: How I verified it works
+
+## 🚀 Usage
+Brief copy/paste commands to run the app or tests.
+
+## 🧩 Troubleshooting
+- Symptom → Likely cause → Fix
+
+Notes:
+- Keep instructions focused on current learning goals.
+- Update this as skills grow from beginner to intermediate.
+- Include stack specifics for more relevant suggestions.
+- Write tests with AI assistance when possible.
