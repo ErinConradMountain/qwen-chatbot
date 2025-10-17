@@ -118,6 +118,26 @@ This repo includes a simple web UI served via FastAPI.
 
 In the sidebar you can switch Provider: Qwen (OpenRouter) or Ollama (local). The UI calls `/api/chat/qwen` or `/api/chat/ollama` accordingly and streams the full text as it’s generated (concatenated server-side for now). Static assets live under `web/`.
 
+### 🖼️ Image Support (Vision)
+
+The web UI supports uploading images for vision-capable models:
+
+1. Click the **"Attach Image"** button in the chat composer
+2. Select one or more images (JPG, PNG, GIF, WebP)
+3. Images are displayed as thumbnails below the input field
+4. Type your message (optional) and click **"Send"**
+5. The model will receive both text and images
+
+**Supported models:**
+- `deepseek/deepseek-r1-0528-qwen3-8b:free` (default, supports vision)
+- Other vision-capable models on OpenRouter
+
+**Technical details:**
+- Images are encoded as base64 data URLs and sent in OpenAI's multimodal message format
+- Message structure: `{role: "user", content: [{type: "text", text: "..."}, {type: "image_url", image_url: {url: "data:image/png;base64,..."}}]}`
+- The QwenProvider passes multimodal messages directly to the OpenRouter API
+- File size limits depend on the API provider (typically a few MB)
+
 Streaming details:
 - Ollama: true token streaming via `/api/generate` with `stream: true` (NDJSON parsed server-side and flushed to the client).
 - Qwen via LiteLLM proxy: unified OpenAI-compatible streaming from `http://localhost:4000/v1/chat/completions`. Use the included `litellm_config.yaml` and scripts to start the proxy locally. The UI calls `/api/llm/stream` which forwards tokens.
