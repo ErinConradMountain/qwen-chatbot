@@ -3,18 +3,23 @@
   const messagesEl = el('#messages');
   const inputEl = el('#input');
   const formEl = el('#composer');
+  const fileInputEl = el('#file-input');
+  const attachBtn = el('#attach');
+  const attachmentsEl = el('#attachments');
   const clearBtn = el('#clear-chat');
   const newChatBtn = el('#new-chat');
   const statusDot = el('#status-dot');
   const statusText = el('#status-text');
   const toggleTheme = el('#toggle-theme');
   const sysPromptEl = el('#system-prompt');
+  const modelNameEl = el('#model-name');
   const banner = el('#banner');
   const bannerText = el('#banner-text');
   const bannerDismiss = el('#banner-dismiss');
   const testConnBtn = el('#test-conn');
 
   let convo = [];
+  let pendingImages = [];
 
   const STATUS_MAP = {
     idle: ['#94a3b8', 'Idle'],
@@ -44,9 +49,29 @@
     avatar.textContent = role === 'user' ? 'U' : 'A';
     const bubble = document.createElement('div');
     bubble.className = 'bubble';
-    const p = document.createElement('p');
-    p.textContent = content;
-    bubble.appendChild(p);
+    // Render string or multimodal array
+    if (Array.isArray(content)) {
+      content.forEach(part => {
+        if (part.type === 'text') {
+          const p = document.createElement('p');
+          p.textContent = part.text || '';
+          bubble.appendChild(p);
+        } else if (part.type === 'image_url' && part.image_url && part.image_url.url) {
+          const img = document.createElement('img');
+          img.src = part.image_url.url;
+          img.alt = part.image_url.alt || 'attached image';
+          img.style.maxWidth = '240px';
+          img.style.borderRadius = '8px';
+          img.style.display = 'block';
+          img.style.margin = '6px 0';
+          bubble.appendChild(img);
+        }
+      });
+    } else {
+      const p = document.createElement('p');
+      p.textContent = content;
+      bubble.appendChild(p);
+    }
     item.appendChild(avatar);
     item.appendChild(bubble);
     messagesEl.appendChild(item);
@@ -70,6 +95,7 @@
         body: JSON.stringify({
           messages,
           system_prompt: (sysPromptEl?.value || '').trim() || undefined,
+          model: (modelNameEl?.value || '').trim() || undefined,
         }),
       });
 
@@ -106,10 +132,25 @@
   formEl.addEventListener('submit', async (e) => {
     e.preventDefault();
     const text = (inputEl.value || '').trim();
-    if (!text) return;
-    addMessage('user', text);
+    if (!text && pendingImages.length === 0) return;
+
+    // Build multimodal content for user
+    let userContent;
+    if (pendingImages.length > 0) {
+      userContent = [];
+      if (text) userContent.push({ type: 'text', text });
+      pendingImages.forEach(url => {
+        userContent.push({ type: 'image_url', image_url: { url } });
+      });
+    } else {
+      userContent = text;
+    }
+
+    addMessage('user', userContent);
     inputEl.value = '';
     autoGrowTextarea();
+    pendingImages = [];
+    attachmentsEl.innerHTML = '';
 
     const placeholder = { role: 'assistant', content: '' };
     convo.push(placeholder);
@@ -121,9 +162,9 @@
     avatar.textContent = 'A';
     const bubble = document.createElement('div');
     bubble.className = 'bubble';
-    const p = document.createElement('p');
-    p.textContent = '';
-    bubble.appendChild(p);
+  const p = document.createElement('p');
+  p.textContent = '';
+  bubble.appendChild(p);
     item.appendChild(avatar);
     item.appendChild(bubble);
     messagesEl.appendChild(item);
@@ -145,6 +186,53 @@
 
   inputEl.addEventListener('input', autoGrowTextarea);
   autoGrowTextarea();
+
+  // Image attachment workflow
+  function addAttachmentPreview(url) {
+    const wrap = document.createElement('div');
+    wrap.className = 'attachment';
+    const img = document.createElement('img');
+    img.src = url;
+    img.alt = 'attachment preview';
+    img.style.maxWidth = '96px';
+    img.style.maxHeight = '96px';
+    img.style.objectFit = 'cover';
+    img.style.borderRadius = '6px';
+    img.style.marginRight = '6px';
+    const removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.className = 'icon-btn';
+    removeBtn.textContent = '×';
+    removeBtn.title = 'Remove';
+    removeBtn.addEventListener('click', () => {
+      const idx = pendingImages.indexOf(url);
+      if (idx >= 0) pendingImages.splice(idx, 1);
+      attachmentsEl.removeChild(wrap);
+    });
+    wrap.appendChild(img);
+    wrap.appendChild(removeBtn);
+    attachmentsEl.appendChild(wrap);
+  }
+
+  attachBtn.addEventListener('click', () => fileInputEl.click());
+
+  fileInputEl.addEventListener('change', async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    for (const f of files) {
+      if (!f.type.startsWith('image/')) continue;
+      const dataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(f);
+      });
+      pendingImages.push(String(dataUrl));
+      addAttachmentPreview(String(dataUrl));
+    }
+    // reset input to allow re-selection of same files
+    fileInputEl.value = '';
+  });
 
   clearBtn.addEventListener('click', resetChat);
   newChatBtn.addEventListener('click', resetChat);

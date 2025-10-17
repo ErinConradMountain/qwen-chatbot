@@ -26,7 +26,7 @@
       <label class="label">Provider</label>
       <div class="static-field">Qwen (OpenRouter)</div>
       <label class="label">Model</label>
-      <div class="static-field">deepseek/deepseek-r1-0528-qwen3-8b:free</div>
+  <input id="model-name" class="input" type="text" placeholder="Model (optional override)" value="deepseek/deepseek-r1-0528-qwen3-8b:free" />
       <label class="label" style="margin-top:12px">System Prompt (optional)</label>
       <textarea id="system-prompt" class="input" rows="5" placeholder="You are a helpful assistant. Answer concisely and do not repeat the user."></textarea>
       <div class="spacer"></div>
@@ -53,8 +53,11 @@
       <section id="messages" class="messages" aria-live="polite" aria-label="Chat messages"></section>
 
       <form id="composer" class="composer" autocomplete="off">
-        <textarea id="input" rows="1" placeholder="Type a message..." minlength="1" required></textarea>
+        <input id="file-input" type="file" accept="image/*" multiple hidden />
+        <div id="attachments" class="attachments" aria-live="polite" aria-label="Pending image attachments"></div>
+        <textarea id="input" rows="1" placeholder="Type a message... or just attach images" minlength="0"></textarea>
         <div class="composer-actions">
+          <button id="attach" class="btn btn-secondary" type="button">Attach Image</button>
           <button id="send" class="btn btn-primary" type="submit">Send</button>
         </div>
       </form>

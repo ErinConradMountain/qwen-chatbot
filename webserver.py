@@ -35,6 +35,7 @@ async def api_chat_qwen(req: Request):
     data = await req.json()
     messages: List[Dict[str, Any]] = data.get("messages", [])
     system_prompt = (data.get("system_prompt") or "").strip()
+    model_override = (data.get("model") or "").strip() or None
 
     if not messages:
         messages = [{"role": "user", "content": "Hello"}]
@@ -44,7 +45,7 @@ async def api_chat_qwen(req: Request):
 
     try:
         provider = QwenProvider()
-        reply = provider.chat(messages)
+        reply = provider.chat(messages, model_override=model_override) if model_override else provider.chat(messages)
         return JSONResponse({"reply": reply})
     except HTTPError as he:
         status = getattr(he.response, "status_code", None) or 502
